@@ -154,13 +154,13 @@ func cmdStatus(args []string) int {
 		p, err := loadProject(dir)
 		if err != nil {
 			bad++
-			fmt.Printf("✗ %s\n    cannot read .mcps.toml: %v\n", tilde(dir), err)
+			fmt.Printf("%s %s\n    cannot read .mcps.toml: %v\n", red("✗"), tilde(dir), err)
 			continue
 		}
 		cells, err := drift(r, dir, p)
 		if err != nil {
 			bad++
-			fmt.Printf("✗ %s\n    %v\n", tilde(dir), err)
+			fmt.Printf("%s %s\n    %v\n", red("✗"), tilde(dir), err)
 			continue
 		}
 		var probs []string
@@ -170,15 +170,15 @@ func cmdStatus(args []string) int {
 			}
 		}
 		if len(probs) == 0 {
-			fmt.Printf("✓ %s  (%d server(s), in sync)\n", tilde(dir), len(p.Use))
+			fmt.Printf("%s %s  %s\n", green("✓"), tilde(dir), dim(fmt.Sprintf("%d server(s), in sync", len(p.Use))))
 			continue
 		}
 		bad++
-		fmt.Printf("✗ %s\n", tilde(dir))
+		fmt.Printf("%s %s\n", red("✗"), tilde(dir))
 		for _, s := range probs {
 			fmt.Println("    " + s)
 		}
-		fmt.Printf("    fix: mcps sync --dir %s\n", dir)
+		fmt.Println("    " + dim("fix: mcps sync --dir "+dir))
 	}
 	if bad > 0 {
 		return 1
@@ -200,21 +200,25 @@ func dropDir(in []string, d string) []string {
 
 type report struct{ bad, warn int }
 
-func (r *report) ok(f string, a ...any) { fmt.Printf("  ✓ "+f+"\n", a...) }
+func (r *report) ok(f string, a ...any) {
+	fmt.Println("  " + green("✓") + " " + fmt.Sprintf(f, a...))
+}
 func (r *report) warnf(fix, f string, a ...any) {
 	r.warn++
-	fmt.Printf("  ! "+f+"\n", a...)
+	fmt.Println("  " + yellow("!") + " " + fmt.Sprintf(f, a...))
 	if fix != "" {
-		fmt.Println("      → " + fix)
+		fmt.Println("      " + dim("→ "+fix))
 	}
 }
 func (r *report) fail(fix, f string, a ...any) {
 	r.bad++
-	fmt.Printf("  ✗ "+f+"\n", a...)
+	fmt.Println("  " + red("✗") + " " + fmt.Sprintf(f, a...))
 	if fix != "" {
-		fmt.Println("      → " + fix)
+		fmt.Println("      " + dim("→ "+fix))
 	}
 }
+
+func heading(s string) { fmt.Println("\n" + bold(s)) }
 
 // cmdDoctor explains why servers might not show up in an AI tool.
 func cmdDoctor(args []string) int {
@@ -225,7 +229,7 @@ func cmdDoctor(args []string) int {
 	dir, _ := filepath.Abs(c.dir)
 	var rep report
 
-	fmt.Println("Your server list")
+	fmt.Println(bold("Your server list"))
 	r, err := loadRegistry()
 	if err != nil {
 		rep.fail("run `mcps` to create it, or fix the file", "%v", err)
@@ -241,11 +245,11 @@ func cmdDoctor(args []string) int {
 		}
 	}
 
-	fmt.Printf("\nThis folder (%s)\n", tilde(dir))
+	heading("This folder  " + dim(tilde(dir)))
 	pf := filepath.Join(dir, ".mcps.toml")
 	if !exists(pf) {
-		rep.warnf("run `mcps` here to choose servers", "no .mcps.toml: this folder does not use mcps yet")
-		return doctorSummary(&rep)
+		fmt.Println("  " + dim("· this folder does not use mcps yet. Run `mcps` here to choose servers."))
+		return 0
 	}
 	p, err := loadProject(dir)
 	if err != nil {
@@ -275,12 +279,12 @@ func cmdDoctor(args []string) int {
 		return doctorSummary(&rep)
 	}
 
-	fmt.Println("\nServers")
+	heading("Servers")
 	for _, s := range specs {
 		checkServer(&rep, s)
 	}
 
-	fmt.Println("\nAI tools")
+	heading("AI tools")
 	cells, err := drift(r, dir, p)
 	if err != nil {
 		rep.fail("", "%v", err)
@@ -314,7 +318,7 @@ func cmdDoctor(args []string) int {
 		}
 		rep.ok("%s: all servers present in %s", name, rel(dir, byAgent[id][0].Path))
 		if h := agentHint(id); h != "" {
-			fmt.Println("      note: " + h)
+			fmt.Println("      " + dim("note: "+h))
 		}
 	}
 	gitCheck(&rep, dir, byAgent, specs)
@@ -337,12 +341,12 @@ func doctorSummary(r *report) int {
 	fmt.Println()
 	switch {
 	case r.bad > 0:
-		fmt.Printf("%d problem(s), %d warning(s). Fix the ✗ lines above, then run `mcps doctor` again.\n", r.bad, r.warn)
+		fmt.Println(red(fmt.Sprintf("%d problem(s)", r.bad)) + fmt.Sprintf(", %d warning(s). Fix the ✗ lines above, then run `mcps doctor` again.", r.warn))
 		return 1
 	case r.warn > 0:
-		fmt.Printf("No problems, %d warning(s).\n", r.warn)
+		fmt.Println(green("No problems") + fmt.Sprintf(", %d warning(s).", r.warn))
 	default:
-		fmt.Println("All good.")
+		fmt.Println(green("All good."))
 	}
 	return 0
 }
@@ -405,7 +409,7 @@ func gitCheck(rep *report, dir string, byAgent map[string][]cell, specs []*agent
 	if exec.Command("git", "-C", dir, "rev-parse", "--is-inside-work-tree").Run() != nil {
 		return
 	}
-	fmt.Println("\nGit")
+	heading("Git")
 	any := false
 	for _, cs := range byAgent {
 		p := cs[0].Path
