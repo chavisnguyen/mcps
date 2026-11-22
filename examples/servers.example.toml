@@ -1,0 +1,25 @@
+# Copy to your PRIVATE config repo as servers.toml. Names/URLs below are fake.
+
+[global]                         # applied by `mcps sync -g`
+use = ["browser"]
+
+[servers.browser]                # remote server (already running)
+url = "http://localhost:3025/mcp"
+install = "make -C ~/path/to/browser-mcp setup"      # `mcps up browser`
+
+[servers.github]                 # local process; ${VAR} comes from your shell env
+cmd = ["npx", "-y", "@modelcontextprotocol/server-github"]
+env = { GITHUB_PERSONAL_ACCESS_TOKEN = "${GITHUB_TOKEN}" }
+
+[servers.composio]              # remote server with auth header
+url = "https://example.com/mcp"
+headers = { x-api-key = "${EXAMPLE_API_KEY}" }
+
+[servers.private-tool]           # private repo: your own ssh key does the auth
+cmd = ["uvx", "--from", "git+ssh://git@github.com/you/private-tool", "private-tool"]
+
+# Several accounts of the same server = several instances with distinct names
+[servers.slack-a]
+url = "http://localhost:3010/mcp"
+[servers.slack-b]
+url = "http://localhost:3011/mcp"

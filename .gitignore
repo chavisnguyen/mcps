@@ -1,0 +1,13 @@
+bin/
+*.log
+# never commit your registry to the public repo
+servers.toml
+.mcps.toml
+!examples/*
+
+# files mcps generates inside a project (may contain API keys): never commit
+.mcp.json
+.codex/
+.kiro/
+.agents/
+opencode.json
