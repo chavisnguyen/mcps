@@ -184,6 +184,11 @@ func run(args []string) int {
 const registryTemplate = `# mcps registry: every MCP server you have, declared once.
 # Projects pick from this list: run "mcps use" inside a project folder.
 # Never write secrets here; reference environment variables as "${NAME}".
+#
+# For humans and AI agents: prefer the commands over editing this file by hand.
+#   mcps add NAME --url URL                    remote server
+#   mcps add NAME -e KEY=value -- CMD ARG...   local command (the key is stored privately)
+#   mcps remove NAME | mcps list
 
 # [servers.github]                       # local process
 # cmd = ["npx", "-y", "@modelcontextprotocol/server-github"]

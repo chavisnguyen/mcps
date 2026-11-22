@@ -210,7 +210,7 @@ func cmdUse(args []string) int {
 
 	cur.Use = chosen
 	var b strings.Builder
-	b.WriteString("# managed by mcps; safe to edit by hand, then run: mcps sync\n")
+	b.WriteString(projectHeader)
 	if err := toml.NewEncoder(&b).Encode(cur); err != nil {
 		return fail(err)
 	}
@@ -289,3 +289,21 @@ func chooseTools(dir string, current []string) ([]string, error) {
 	}
 	return ids, nil
 }
+
+// projectHeader is written at the top of .mcps.toml. It is also instructions for
+// an AI agent working in this folder, so it can manage MCP servers without
+// guessing (and without editing the generated files by hand).
+const projectHeader = `# MCP servers for this folder, managed by mcps (https://github.com/chavisnguyen/mcps).
+#
+# For humans and AI agents:
+#   - "use" below lists the servers this folder gets, by name. Names come from the hub: run  mcps list
+#   - Change the list, then run  mcps sync  to rewrite the config for every AI tool.
+#   - New server not in the hub yet? Add it once, then put its name in "use" and run  mcps sync:
+#         mcps add NAME --url URL                       (remote server)
+#         mcps add NAME -e KEY=value -- CMD ARG...      (local command; the key is stored privately)
+#   - Do NOT edit the generated files by hand (.mcp.json, .codex/config.toml, .cursor/mcp.json,
+#     .kiro/settings/mcp.json, opencode.json, .agents/mcp_config.json): the next sync overwrites them.
+#   - "agents" (optional) limits which tools get files, e.g. agents = ["claude", "codex"].
+#   - If something does not show up in a tool: mcps doctor
+#   - "mcps use" is interactive (for humans); agents should edit this file and run mcps sync.
+`

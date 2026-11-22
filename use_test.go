@@ -60,7 +60,7 @@ func TestUseReplacesFolderAndPromotes(t *testing.T) {
 	if !strings.Contains(readFile(filepath.Join(h, ".mcps/secrets.env")), "s3cret") {
 		t.Fatal("secret not stored")
 	}
-	if p := readFile(filepath.Join(proj, ".mcps.toml")); !strings.Contains(p, `"a"`) || !strings.Contains(p, `"b"`) || strings.Contains(p, `"c"`) {
+	if p := readFile(filepath.Join(proj, ".mcps.toml")); !strings.Contains(p, "mcps sync") || !strings.Contains(p, "mcps add NAME") || !strings.Contains(p, `"a"`) || !strings.Contains(p, `"b"`) || strings.Contains(p, `"c"`) {
 		t.Fatalf(".mcps.toml wrong:\n%s", p)
 	}
 }
