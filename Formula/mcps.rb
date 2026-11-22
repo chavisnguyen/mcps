@@ -1,8 +1,8 @@
 class Mcps < Formula
   desc "One MCP registry for every AI coding agent"
   homepage "https://github.com/chavisnguyen/mcps"
-  url "https://github.com/chavisnguyen/mcps/archive/refs/tags/v0.5.0.tar.gz"
-  sha256 "5a7afeb737b2b5be78030579707b352f0578c78cb400cb62c28ea5a411d7193c"
+  url "https://github.com/chavisnguyen/mcps/archive/refs/tags/v0.5.1.tar.gz"
+  sha256 "c3a0913084deef3c967ff1e897aafe811945497fcbf677ce86169ebca82b5d6a"
   license "MIT"
 
   depends_on "go" => :build
