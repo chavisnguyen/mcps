@@ -146,7 +146,7 @@ func cmdStatus(args []string) int {
 		dirs = append([]string{cwd}, dropDir(dirs, cwd)...)
 	}
 	if len(dirs) == 0 {
-		fmt.Println("No folders use mcps yet. Run `mcps` inside a project folder to set one up.")
+		fmt.Println("No folders use mcps yet. Run `mcps use` inside a project folder to set one up.")
 		return 0
 	}
 	bad := 0
@@ -232,7 +232,7 @@ func cmdDoctor(args []string) int {
 	fmt.Println(bold("Your server list"))
 	r, err := loadRegistry()
 	if err != nil {
-		rep.fail("run `mcps` to create it, or fix the file", "%v", err)
+		rep.fail("run `mcps use` to create it, or fix the file", "%v", err)
 		return doctorSummary(&rep)
 	}
 	rep.ok("%s has %d server(s)", tilde(registryPath()), len(r.Servers))
@@ -248,7 +248,7 @@ func cmdDoctor(args []string) int {
 	heading("This folder  " + dim(tilde(dir)))
 	pf := filepath.Join(dir, ".mcps.toml")
 	if !exists(pf) {
-		fmt.Println("  " + dim("· this folder does not use mcps yet. Run `mcps` here to choose servers."))
+		fmt.Println("  " + dim("· this folder does not use mcps yet. Run `mcps use` here to choose servers."))
 		return 0
 	}
 	p, err := loadProject(dir)
@@ -257,7 +257,7 @@ func cmdDoctor(args []string) int {
 		return doctorSummary(&rep)
 	}
 	if len(p.Use) == 0 {
-		rep.warnf("run `mcps` and tick some servers", ".mcps.toml selects no servers")
+		rep.warnf("run `mcps use` and tick some servers", ".mcps.toml selects no servers")
 		return doctorSummary(&rep)
 	}
 	var unknown []string

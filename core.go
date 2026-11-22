@@ -271,6 +271,7 @@ type target struct {
 	project string
 	agents  []agents.Agent
 	dry     bool
+	replace bool // remove every entry not in desired (not just ones mcps created)
 }
 
 // pickAgents resolves --agents, else every agent detected on this machine.
@@ -350,6 +351,11 @@ func apply(t target, desired []*agents.Spec, extraOps []op, track bool) (failure
 		if track {
 			for _, n := range st.Files[path] {
 				prev[n] = true
+			}
+			if t.replace {
+				for _, n := range cur {
+					prev[n] = true
+				}
 			}
 			for n := range prev {
 				if !desiredNames[n] && have[n] {

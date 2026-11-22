@@ -18,27 +18,33 @@ var version = "dev"
 const usage = `mcps - set up MCP servers for all your AI tools, from one list.
 
 Quick start
-  Run "mcps" inside a project folder. It walks you through it.
+  1. mcps import               once: bring in the MCP servers your AI tools already have
+  2. mcps use                  in a project folder: choose which servers it uses
 
-Everyday
-  mcps                         set up MCP servers for the current folder (guided)
-  mcps add NAME --url URL      add a new MCP server to the mcps list
+Choosing a folder's servers
+  mcps use                     shows what the folder has now and what is in your hub.
+                               Servers only found in the folder can be added to the hub.
+                               Saving rewrites the folder's MCP config (old files are backed up).
+
+The hub (all your servers, written once)
+  mcps add NAME --url URL      add a server
   mcps add NAME -- CMD ARG...  ...or a local one, e.g.  mcps add github -- npx -y @modelcontextprotocol/server-github
-  mcps remove NAME             remove a server from the mcps list
-  mcps list                    show the mcps list
-  mcps import                  add MCP servers already set up in your AI tools to the list
+  mcps remove NAME             remove a server
+  mcps list                    show the hub
+
+Health
+  mcps doctor                  find out why a server is not showing up in a tool
+  mcps status                  is every folder you set up still in sync with the list?
 
 More
   mcps sync                    re-apply this folder's .mcps.toml (after editing it by hand)
-  mcps doctor                  find out why a server is not showing up in a tool
-  mcps status                  is every folder you set up still in sync with the list?
   mcps validate [file...]      check the list and project files; changes nothing
   mcps up <server>             run a server's "install" command from the list
   mcps init [git-url]          create the list (done for you), or use a git repo as the list
-  mcps global add|rm|list      edit your AI tools' global config directly
-  mcps sync -g                 apply [global] use from the list to your AI tools' global config
+  mcps import --local|--global only this folder's files / only the tools' global settings
+  mcps import --scan DIR       also read project folders under DIR
 
-Flags: --global / --local (import: only tools' global config / only this folder; default both)  --scan DIR (import: also read project folders under DIR)  --dry-run  --agents claude,codex  --dir PATH  --local (global add/rm/list)  -e KEY[=VALUE]  -H "Name: value"
+Flags:  --dry-run  --agents claude,codex  --dir PATH  --local (global add/rm/list)  -e KEY[=VALUE]  -H "Name: value"
 Env:   MCPS_HOME (default ~/.mcps), MCPS_REGISTRY (path to servers.toml)
 `
 
@@ -131,11 +137,8 @@ func main() { os.Exit(run(os.Args[1:])) }
 
 func run(args []string) int {
 	if len(args) == 0 {
-		if isTTY() {
-			return cmdPick(nil)
-		}
 		fmt.Print(usage)
-		return 2
+		return 0
 	}
 	cmd, rest := args[0], args[1:]
 	switch cmd {
@@ -153,8 +156,8 @@ func run(args []string) int {
 		return cmdUp(rest)
 	case "import":
 		return cmdImport(rest)
-	case "pick", "ui":
-		return cmdPick(rest)
+	case "use", "pick", "ui":
+		return cmdUse(rest)
 	case "sync":
 		return cmdSync(rest)
 	case "validate":
@@ -179,7 +182,7 @@ func run(args []string) int {
 // ------------------------------------------------------------------ commands
 
 const registryTemplate = `# mcps registry: every MCP server you have, declared once.
-# Projects pick from this list: run mcps inside a project folder.
+# Projects pick from this list: run "mcps use" inside a project folder.
 # Never write secrets here; reference environment variables as "${NAME}".
 
 # [servers.github]                       # local process
@@ -217,7 +220,7 @@ func cmdInit(args []string) int {
 		}
 		if created {
 			fmt.Println("created", p)
-			fmt.Println("add your MCP servers there, then run mcps inside a project folder")
+			fmt.Println("add your MCP servers there, then run `mcps use` inside a project folder")
 		} else {
 			fmt.Println("registry already exists:", p)
 		}

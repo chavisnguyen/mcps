@@ -23,7 +23,7 @@ then use `bin/mcps`.)
 Open a terminal in any project folder and run:
 
 ```bash
-mcps
+mcps use
 ```
 
 **Step 1: your MCP servers.** `mcps` finds the MCP servers you already have in your AI tools and
@@ -66,7 +66,7 @@ mcps add sentry -e SENTRY_TOKEN=your-token -- npx -y @sentry/mcp-server
 Your key is **not** written into the list; it is stored privately in `~/.mcps/secrets.env`.
 A remote server that needs a header: `mcps add NAME --url URL -H "Authorization: Bearer your-token"`.
 
-Then turn it on where you need it: run `mcps` in that folder and tick it (see below).
+Then turn it on where you need it: run `mcps use` in that folder and tick it (see below).
 
 Other things you may want:
 
@@ -82,18 +82,28 @@ Other things you may want:
 
 ## 3. Use specific MCP servers in one folder
 
-Go to the folder and run `mcps`. It remembers what you ticked last time.
+Go to the folder and run `mcps use`. It remembers what you ticked last time.
 
 ```bash
 cd ~/work/my-api
-mcps
+mcps use
 ```
 
 ![Choosing servers for another folder](docs/img/5-other-folder.svg)
 
 ![Done](docs/img/6-other-folder-done.svg)
 
-Run `mcps` again whenever you want to change the folder's servers: untick one and it is removed
+### The folder already has MCP config?
+
+`mcps use` shows two groups: what is **in your hub**, and what exists **only in this folder**.
+Servers only found here are ticked, so ticking keeps them and adds them to your hub for other
+folders. Untick one to drop it from this folder. Your old files are backed up first.
+
+![A folder with old MCP config](docs/img/8-old-folder.svg)
+
+![Done](docs/img/9-old-folder-done.svg)
+
+Run `mcps use` again whenever you want to change the folder's servers: untick one and it is removed
 from that folder; tick another and it is added.
 
 What gets created in the folder:
@@ -142,12 +152,12 @@ After you change a server in the list, it tells you which folders need `mcps syn
 
 | Command | What it does |
 |---|---|
-| `mcps` | set up MCP servers for the current folder (guided) |
+| `mcps use` | choose the servers for this folder (shows what it has now + your hub) |
 | `mcps add NAME --url URL` / `mcps add NAME -- CMD ARGS` | add a server to the list |
 | `mcps remove NAME` | remove a server from the list |
 | `mcps list` | show the list |
-| `mcps import` | add servers your tools already have (global, plus the current folder) |
-| `mcps import --global` / `--local` | only your tools' global settings / only this folder |
+| `mcps import` | bring in servers your tools already have (global settings, plus this folder) |
+| `mcps import --global` / `--local` | only the tools' global settings / only this folder |
 | `mcps import --scan ~/Projects` | also find servers set up inside project folders |
 | `mcps doctor` | find out why a server is not showing up in a tool |
 | `mcps status` | check every folder you set up is still in sync with the list |
@@ -155,7 +165,7 @@ After you change a server in the list, it tells you which folders need `mcps syn
 | `mcps validate` | check the list and project files, changes nothing |
 | `mcps init [git-url]` | create the list, or keep it in a git repo |
 | `mcps up NAME` | run a server's `install` command from the list |
-| `mcps global add\|rm\|list` | edit your tools' global settings directly |
+| `mcps global add\|rm` | edit your tools' global settings directly |
 
 Flags: `--dry-run` (show what would change), `--agents claude,codex`, `--dir PATH`.
 Options for `add`: `-e KEY=VALUE` (or `-e KEY` to read `$KEY`), `-H "Name: value"`.

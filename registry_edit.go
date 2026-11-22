@@ -114,7 +114,7 @@ func cmdAdd(args []string) int {
 			fmt.Printf("Note: ${%s} is read from your environment (or %s).\n", k, tilde(secretsPath()))
 		}
 	}
-	fmt.Println("Next: run mcps inside a project folder and tick it.")
+	fmt.Println("Next: run `mcps use` inside a project folder and tick it.")
 	return 0
 }
 
@@ -140,7 +140,7 @@ func cmdRemove(args []string) int {
 		return fail(err)
 	}
 	fmt.Printf("Removed %q from the mcps list.\n", name)
-	fmt.Println("Folders that use it keep their current files; it is dropped the next time you run mcps there.")
+	fmt.Println("Folders that use it keep their current files; it is dropped the next time you run mcps use there.")
 	return 0
 }
 

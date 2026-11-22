@@ -7,5 +7,5 @@
 <text x="28.45" y="52.00" fill="#d4d4d8" xml:space="preserve" textLength="836.55" lengthAdjust="spacing"> mcps add notion --url https://mcp.notion.com/mcp                                                  </text>
 <text x="20.00" y="71.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Added &quot;notion&quot; to the mcps list.                                                                    </text>
 <text x="20.00" y="90.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">  https://mcp.notion.com/mcp                                                                        </text>
-<text x="20.00" y="109.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Next: run mcps inside a project folder and tick it.                                                 </text>
+<text x="20.00" y="109.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Next: run `mcps use` inside a project folder and tick it.                                           </text>
 </svg>

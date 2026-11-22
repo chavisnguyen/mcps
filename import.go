@@ -128,15 +128,21 @@ func scanGlobal(csv string, withGlobal bool, here string, scan []string) (map[st
 			}
 		}
 	}
+	// A project file is evidence enough that a tool is used there, even if the
+	// tool is not detected on this machine.
+	projAgents := ags
+	if csv == "" {
+		projAgents = agents.All()
+	}
 	var dirs []string
 	if here != "" {
 		dirs = append(dirs, here)
 	}
 	for _, root := range scan {
-		dirs = append(dirs, walkProjects(root, ags)...)
+		dirs = append(dirs, walkProjects(root, projAgents)...)
 	}
 	for _, d := range dirs {
-		for _, a := range ags {
+		for _, a := range projAgents {
 			if path, ok := a.Path("local", d); ok {
 				if n := readInto(found, st, a, path, d); n != "" {
 					notes = append(notes, n)
@@ -144,7 +150,7 @@ func scanGlobal(csv string, withGlobal bool, here string, scan []string) (map[st
 			}
 		}
 	}
-	claudeProjects(found, append([]string{here}, scan...))
+	claudeProjects(found, append([]string{here}, scan...), false)
 	return found, notes, nil
 }
 
@@ -182,7 +188,7 @@ func walkProjects(root string, ags []agents.Agent) []string {
 
 // claudeProjects reads Claude Code's "local scope" servers (kept per project
 // inside ~/.claude.json) for the scanned folders.
-func claudeProjects(found map[string]*cand, scan []string) {
+func claudeProjects(found map[string]*cand, scan []string, exact bool) {
 	var doc struct {
 		Projects map[string]struct {
 			MCP map[string]json.RawMessage `json:"mcpServers"`
@@ -197,7 +203,7 @@ func claudeProjects(found map[string]*cand, scan []string) {
 			if root == "" {
 				continue
 			}
-			if dir == root || strings.HasPrefix(dir, filepath.Clean(root)+string(os.PathSeparator)) {
+			if dir == root || (!exact && strings.HasPrefix(dir, filepath.Clean(root)+string(os.PathSeparator))) {
 				in = true
 			}
 		}
@@ -436,25 +442,15 @@ func runImport(args []string, guided bool) int {
 		return 0
 	}
 
-	var blocks strings.Builder
-	secrets := map[string]string{}
-	var warns []string
+	var specs []*agents.Spec
+	bound := map[string]bool{}
 	for _, n := range chosen {
-		d, sec, w := toDef(found[n].spec())
-		warns = append(warns, w...)
-		if found[n].folderBound() {
-			warns = append(warns, n+": uses relative file paths from its original folder; edit its cmd to absolute paths before using it elsewhere")
-		}
-		for k, v := range sec {
-			secrets[k] = v
-		}
-		blocks.WriteString("\n" + renderServer(n, d))
+		specs = append(specs, found[n].spec())
+		bound[n] = found[n].folderBound()
 	}
-	cur := readFile(registryPath())
-	out := strings.TrimRight(cur, "\n") + "\n" + blocks.String()
-	var probe map[string]any
-	if _, err := toml.Decode(out, &probe); err != nil {
-		return fail(fmt.Errorf("refusing to write: resulting registry would be invalid: %w", err))
+	blocks, out, secrets, warns, err := prepareRegister(specs, bound)
+	if err != nil {
+		return fail(err)
 	}
 
 	var sv []string
@@ -464,14 +460,11 @@ func runImport(args []string, guided bool) int {
 	sort.Strings(sv)
 	if c.dry {
 		fmt.Println("dry-run: would append to", tilde(registryPath())+":")
-		fmt.Print(blocks.String())
+		fmt.Print(blocks)
 		fmt.Printf("\nsecret values that would move to %s (names only): %s\n", tilde(secretsPath()), orNone(sv))
 		return 0
 	}
-	if err := addSecrets(secrets); err != nil {
-		return fail(err)
-	}
-	if err := writeAtomic(registryPath(), out, true); err != nil {
+	if err := commitRegister(out, secrets); err != nil {
 		return fail(err)
 	}
 	fmt.Printf("\nAdded %d MCP server(s) to the mcps list (%s).\n", len(chosen), tilde(registryPath()))
@@ -483,7 +476,7 @@ func runImport(args []string, guided bool) int {
 	}
 	fmt.Println("Check any command arguments that may contain a key: they are copied as-is.")
 	if !guided {
-		fmt.Println("Next: run mcps inside a project folder to choose which servers it uses.")
+		fmt.Println("Next: run `mcps use` inside a project folder to choose which servers it uses.")
 	}
 	return 0
 }
@@ -502,4 +495,36 @@ func friendlyAgents(found map[string]*cand) string {
 	}
 	sort.Strings(names)
 	return strings.Join(names, ", ")
+}
+
+// prepareRegister renders registry blocks for specs (secrets moved out) and the
+// resulting registry text, validating it. Nothing is written.
+func prepareRegister(specs []*agents.Spec, bound map[string]bool) (blocks, out string, secrets map[string]string, warns []string, err error) {
+	var b strings.Builder
+	secrets = map[string]string{}
+	for _, sp := range specs {
+		d, sec, w := toDef(sp)
+		warns = append(warns, w...)
+		if bound[sp.Name] {
+			warns = append(warns, sp.Name+": uses relative file paths from its original folder; edit its cmd to absolute paths before using it elsewhere")
+		}
+		for k, v := range sec {
+			secrets[k] = v
+		}
+		b.WriteString("\n" + renderServer(sp.Name, d))
+	}
+	blocks = b.String()
+	out = strings.TrimRight(readFile(registryPath()), "\n") + "\n" + blocks
+	var probe map[string]any
+	if _, e := toml.Decode(out, &probe); e != nil {
+		return "", "", nil, nil, fmt.Errorf("refusing to write: resulting registry would be invalid: %w", e)
+	}
+	return
+}
+
+func commitRegister(out string, secrets map[string]string) error {
+	if err := addSecrets(secrets); err != nil {
+		return err
+	}
+	return writeAtomic(registryPath(), out, true)
 }
