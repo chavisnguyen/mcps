@@ -30,6 +30,8 @@ Everyday
 
 More
   mcps sync                    re-apply this folder's .mcps.toml (after editing it by hand)
+  mcps doctor                  find out why a server is not showing up in a tool
+  mcps status                  is every folder you set up still in sync with the list?
   mcps validate [file...]      check the list and project files; changes nothing
   mcps up <server>             run a server's "install" command from the list
   mcps init [git-url]          create the list (done for you), or use a git repo as the list
@@ -156,6 +158,10 @@ func run(args []string) int {
 		return cmdSync(rest)
 	case "validate":
 		return cmdValidate(rest)
+	case "doctor":
+		return cmdDoctor(rest)
+	case "status":
+		return cmdStatus(rest)
 	case "add":
 		return cmdAdd(rest)
 	case "rm", "remove":

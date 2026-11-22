@@ -116,6 +116,14 @@ to `.mcps.toml`.
 
 ---
 
+## Something not showing up?
+
+Run `mcps doctor` in the folder. It checks your list, your keys, whether each server can start
+(or is listening), and whether every tool's file has the servers, then tells you what to run to fix it.
+
+`mcps status` shows, for every folder you have set up, whether it still matches your list.
+After you change a server in the list, it tells you which folders need `mcps sync`.
+
 ## Good to know
 
 - **Your existing MCP setup is safe.** `mcps` only changes servers it created. Anything you added
@@ -139,6 +147,8 @@ to `.mcps.toml`.
 | `mcps remove NAME` | remove a server from the list |
 | `mcps list` | show the list |
 | `mcps import` | add servers your tools already have |
+| `mcps doctor` | find out why a server is not showing up in a tool |
+| `mcps status` | check every folder you set up is still in sync with the list |
 | `mcps sync` | re-apply this folder's `.mcps.toml` after editing it by hand |
 | `mcps validate` | check the list and project files, changes nothing |
 | `mcps init [git-url]` | create the list, or keep it in a git repo |

@@ -2,8 +2,9 @@ package agents
 
 import "path/filepath"
 
-// NOTE: schema (mcp.<name> with type local|remote) follows OpenCode's documented
-// format as I know it; verify against your installed version.
+// OpenCode v2 (verified against opencode.ai/docs/mcp-servers and a real v2.3.2
+// config): servers live under mcp.servers; local = {type, command[], environment},
+// remote = {type, url, headers}. There is no "enabled" field (only "disabled").
 func init() {
 	register(func() Agent {
 		oc := filepath.Join(home(), ".config/opencode")
@@ -13,11 +14,12 @@ func init() {
 			glob:   []string{filepath.Join(oc, "opencode.jsonc"), filepath.Join(oc, "opencode.json")},
 			local:  "opencode.json",
 			key:    "mcp",
+			sub:    "servers",
 			entry: func(s *Spec) obj {
 				if s.Remote() {
-					return s.withHeaders(mk("type", "remote", "url", s.URL, "enabled", true))
+					return s.withHeaders(mk("type", "remote", "url", s.URL))
 				}
-				o := mk("type", "local", "command", append([]string{s.Command}, s.Args...), "enabled", true)
+				o := mk("type", "local", "command", append([]string{s.Command}, s.Args...))
 				if len(s.Env) > 0 {
 					o = append(o, kv{"environment", enc(s.Env)})
 				}

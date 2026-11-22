@@ -14,6 +14,7 @@ type jsonAgent struct {
 	glob   []string // candidate global files; first existing wins, else the last
 	local  string   // project-relative path; "" = no project-level config
 	key    string
+	sub    string // optional second level (OpenCode v2: mcp.servers)
 	entry  func(*Spec) obj
 }
 
@@ -53,11 +54,49 @@ func (a *jsonAgent) load(text string) (top, servers obj, err error) {
 	}
 	servers = obj{}
 	if i := top.idx(a.key); i >= 0 {
-		if servers, err = parseObj(string(top[i].V)); err != nil {
+		if servers, err = a.unwrap(top[i].V); err != nil {
 			return nil, nil, err
 		}
 	}
 	return top, servers, nil
+}
+
+// unwrap returns the server map from the value stored under a.key.
+func (a *jsonAgent) unwrap(v json.RawMessage) (obj, error) {
+	o, err := parseObj(string(v))
+	if err != nil || a.sub == "" {
+		return o, err
+	}
+	if i := o.idx(a.sub); i >= 0 {
+		return parseObj(string(o[i].V))
+	}
+	return obj{}, nil
+}
+
+// wrap puts the server map back under a.key (and a.sub), keeping sibling keys.
+func (a *jsonAgent) wrap(top *obj, servers obj) {
+	if a.sub == "" {
+		if len(servers) == 0 {
+			top.del(a.key)
+		} else {
+			top.set(a.key, enc(servers))
+		}
+		return
+	}
+	outer := obj{}
+	if i := top.idx(a.key); i >= 0 {
+		outer, _ = parseObj(string((*top)[i].V))
+	}
+	if len(servers) == 0 {
+		outer.del(a.sub)
+	} else {
+		outer.set(a.sub, enc(servers))
+	}
+	if len(outer) == 0 {
+		top.del(a.key)
+	} else {
+		top.set(a.key, enc(outer))
+	}
 }
 
 func (a *jsonAgent) Apply(text, name string, s *Spec) (string, error) {
@@ -67,15 +106,10 @@ func (a *jsonAgent) Apply(text, name string, s *Spec) (string, error) {
 	}
 	if s == nil {
 		servers.del(name)
-		if len(servers) == 0 {
-			top.del(a.key)
-		} else {
-			top.set(a.key, enc(servers))
-		}
 	} else {
 		servers.set(name, enc(a.entry(s)))
-		top.set(a.key, enc(servers))
 	}
+	a.wrap(&top, servers)
 	return top.pretty(), nil
 }
 
@@ -100,7 +134,7 @@ func (a *jsonAgent) Read(text string) ([]*Spec, error) {
 	if i < 0 {
 		return nil, nil
 	}
-	servers, err := parseObj(string(top[i].V))
+	servers, err := a.unwrap(top[i].V)
 	if err != nil {
 		return nil, err
 	}
