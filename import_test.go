@@ -101,3 +101,52 @@ func TestDesktopMcpRemoteIsReadBackAsRemote(t *testing.T) {
 		t.Fatalf("desktop mcp-remote entry should equal the remote one: %+v", found["b"])
 	}
 }
+
+func TestAddAndRemoveRoundTrip(t *testing.T) {
+	h := t.TempDir()
+	t.Setenv("HOME", h)
+	t.Setenv("MCPS_HOME", filepath.Join(h, ".mcps"))
+	t.Setenv("MCPS_REGISTRY", "")
+	if run([]string{"add", "api", "--url", "https://x.example/mcp", "-H", "x-api-key: SUPERSECRET"}) != 0 {
+		t.Fatal("add url failed")
+	}
+	if run([]string{"add", "gh", "-e", "GITHUB_TOKEN=ghp_abc", "-e", "LOG=debug", "--", "npx", "-y", "@mcp/github"}) != 0 {
+		t.Fatal("add cmd failed")
+	}
+	reg := readFile(registryPath())
+	for _, leaked := range []string{"SUPERSECRET", "ghp_abc"} {
+		if strings.Contains(reg, leaked) {
+			t.Fatalf("%q leaked into the list:\n%s", leaked, reg)
+		}
+	}
+	for _, want := range []string{"[servers.api]", "[servers.gh]", "${API_X_API_KEY}", "${GH_GITHUB_TOKEN}", `LOG = "debug"`} {
+		if !strings.Contains(reg, want) {
+			t.Fatalf("missing %q:\n%s", want, reg)
+		}
+	}
+	if run([]string{"add", "gh", "--url", "http://dup"}) == 0 {
+		t.Fatal("duplicate add must fail")
+	}
+	if run([]string{"validate"}) != 0 {
+		t.Fatal("list must validate")
+	}
+	if run([]string{"remove", "gh"}) != 0 {
+		t.Fatal("remove failed")
+	}
+	reg = readFile(registryPath())
+	if strings.Contains(reg, "[servers.gh]") || !strings.Contains(reg, "[servers.api]") {
+		t.Fatalf("remove must drop only gh:\n%s", reg)
+	}
+	if run([]string{"remove", "nope"}) == 0 {
+		t.Fatal("removing an unknown server must fail")
+	}
+	// a project can use what was added, secrets resolved from secrets.env
+	proj := t.TempDir()
+	os.WriteFile(filepath.Join(proj, ".mcps.toml"), []byte(`use=["api"]`), 0o644)
+	if run([]string{"sync", "--dir", proj, "--agents", "claude"}) != 0 {
+		t.Fatal("sync failed")
+	}
+	if !strings.Contains(readFile(filepath.Join(proj, ".mcp.json")), "SUPERSECRET") {
+		t.Fatal("header value should be filled from secrets.env")
+	}
+}

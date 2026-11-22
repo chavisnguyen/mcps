@@ -309,9 +309,9 @@ func runImport(args []string, guided bool) int {
 	}
 	sort.Strings(sv)
 	if c.dry {
-		fmt.Println("dry-run: would append to", registryPath()+":")
+		fmt.Println("dry-run: would append to", tilde(registryPath())+":")
 		fmt.Print(blocks.String())
-		fmt.Printf("\nsecret values that would move to %s (names only): %s\n", secretsPath(), orNone(sv))
+		fmt.Printf("\nsecret values that would move to %s (names only): %s\n", tilde(secretsPath()), orNone(sv))
 		return 0
 	}
 	if err := addSecrets(secrets); err != nil {
@@ -320,9 +320,9 @@ func runImport(args []string, guided bool) int {
 	if err := writeAtomic(registryPath(), out, true); err != nil {
 		return fail(err)
 	}
-	fmt.Printf("\nAdded %d MCP server(s) to the mcps list (%s).\n", len(chosen), registryPath())
+	fmt.Printf("\nAdded %d MCP server(s) to the mcps list (%s).\n", len(chosen), tilde(registryPath()))
 	if len(sv) > 0 {
-		fmt.Printf("%d API key(s) were stored privately in %s instead of the list.\n", len(sv), secretsPath())
+		fmt.Printf("%d API key(s) were stored privately in %s instead of the list.\n", len(sv), tilde(secretsPath()))
 	}
 	for _, w := range warns {
 		fmt.Println("  !", w)

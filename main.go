@@ -20,17 +20,23 @@ const usage = `mcps - set up MCP servers for all your AI tools, from one list.
 Quick start
   Run "mcps" inside a project folder. It walks you through it.
 
-Other commands
-  mcps import                add MCP servers already set up in your AI tools to the mcps list
-  mcps servers               show the mcps list
-  mcps sync                  re-apply this folder's .mcps.toml (after editing it by hand)
-  mcps validate [file...]    check the mcps list and project files; changes nothing
-  mcps init [git-url]        create the mcps list (done for you), or use a git repo as the list
-  mcps up <server>           run a server's "install" command from the list
-  mcps add|rm|list           ad-hoc edits of your AI tools' global config
-  mcps sync -g               apply [global] use from the list to your AI tools' global config
+Everyday
+  mcps                         set up MCP servers for the current folder (guided)
+  mcps add NAME --url URL      add a new MCP server to the mcps list
+  mcps add NAME -- CMD ARG...  ...or a local one, e.g.  mcps add github -- npx -y @modelcontextprotocol/server-github
+  mcps remove NAME             remove a server from the mcps list
+  mcps list                    show the mcps list
+  mcps import                  add MCP servers already set up in your AI tools to the list
 
-Flags: --dry-run  --agents claude,codex  --dir PATH  --local (add/rm/list)
+More
+  mcps sync                    re-apply this folder's .mcps.toml (after editing it by hand)
+  mcps validate [file...]      check the list and project files; changes nothing
+  mcps up <server>             run a server's "install" command from the list
+  mcps init [git-url]          create the list (done for you), or use a git repo as the list
+  mcps global add|rm|list      edit your AI tools' global config directly
+  mcps sync -g                 apply [global] use from the list to your AI tools' global config
+
+Flags: --dry-run  --agents claude,codex  --dir PATH  --local (global add/rm/list)  -e KEY[=VALUE]  -H "Name: value"
 Env:   MCPS_HOME (default ~/.mcps), MCPS_REGISTRY (path to servers.toml)
 `
 
@@ -153,9 +159,11 @@ func run(args []string) int {
 	case "add":
 		return cmdAdd(rest)
 	case "rm", "remove":
-		return cmdRm(rest)
+		return cmdRemove(rest)
 	case "list", "ls":
-		return cmdList(rest)
+		return cmdServers()
+	case "global":
+		return cmdGlobal(rest)
 	}
 	fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", cmd, usage)
 	return 2
@@ -325,9 +333,9 @@ func scopeOf(c *common) string {
 	return "global"
 }
 
-func cmdAdd(args []string) int {
+func cmdGlobalAdd(args []string) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return fail(fmt.Errorf("usage: mcps add NAME [flags] (--url URL | -- CMD ARG...)"))
+		return fail(fmt.Errorf("usage: mcps global add NAME [flags] (--url URL | -- CMD ARG...)"))
 	}
 	name := args[0]
 	flags, cmdline := args[1:], []string(nil)
@@ -367,9 +375,9 @@ func cmdAdd(args []string) int {
 	return 0
 }
 
-func cmdRm(args []string) int {
+func cmdGlobalRm(args []string) int {
 	if len(args) == 0 || strings.HasPrefix(args[0], "-") {
-		return fail(fmt.Errorf("usage: mcps rm NAME [flags]"))
+		return fail(fmt.Errorf("usage: mcps global rm NAME [flags]"))
 	}
 	var c common
 	if err := newFlags("rm", &c, nil, nil).Parse(args[1:]); err != nil {
@@ -388,7 +396,7 @@ func cmdRm(args []string) int {
 	return 0
 }
 
-func cmdList(args []string) int {
+func cmdGlobalList(args []string) int {
 	var c common
 	if err := newFlags("list", &c, nil, nil).Parse(args); err != nil {
 		return 2
@@ -509,4 +517,19 @@ func cmdValidate(args []string) int {
 	}
 	fmt.Printf("ok: %d server(s) in registry\n", len(r.Servers))
 	return 0
+}
+
+func cmdGlobal(args []string) int {
+	if len(args) == 0 {
+		return fail(fmt.Errorf("usage: mcps global add|rm|list ..."))
+	}
+	switch args[0] {
+	case "add":
+		return cmdGlobalAdd(args[1:])
+	case "rm", "remove":
+		return cmdGlobalRm(args[1:])
+	case "list", "ls":
+		return cmdGlobalList(args[1:])
+	}
+	return fail(fmt.Errorf("unknown: mcps global %s", args[0]))
 }

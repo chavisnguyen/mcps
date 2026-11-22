@@ -143,7 +143,7 @@ func (r *Registry) resolve(names []string) ([]*agents.Spec, error) {
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		return nil, fmt.Errorf("missing value for: %s\n  set it as an environment variable, or add a NAME=value line to %s",
-			strings.Join(uniq(missing), ", "), secretsPath())
+			strings.Join(uniq(missing), ", "), tilde(secretsPath()))
 	}
 	return specs, nil
 }
@@ -503,4 +503,12 @@ func addSecrets(add map[string]string) error {
 	}
 	secretsCache = nil
 	return os.Chmod(secretsPath(), 0o600)
+}
+
+// tilde shortens paths under the home directory to ~/... for display.
+func tilde(p string) string {
+	if h := home(); h != "" && (p == h || strings.HasPrefix(p, h+string(os.PathSeparator))) {
+		return "~" + p[len(h):]
+	}
+	return p
 }

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="884" height="406" viewBox="0 0 884 406" font-family="SF Mono, Menlo, Consolas, DejaVu Sans Mono, monospace" font-size="14">
+<rect width="884" height="406" rx="10" fill="#18181b"/>
+<rect width="884" height="34" rx="10" fill="#27272a"/><rect y="24" width="884" height="10" fill="#27272a"/>
+<circle cx="20" cy="17" r="6" fill="#ef4444"/><circle cx="40" cy="17" r="6" fill="#f59e0b"/><circle cx="60" cy="17" r="6" fill="#22c55e"/>
+<text x="442.0" y="22" fill="#a1a1aa" font-size="12" text-anchor="middle">my-api</text>
+<text x="20.00" y="52.00" fill="#4ade80" xml:space="preserve" textLength="8.45" lengthAdjust="spacing">$</text>
+<text x="28.45" y="52.00" fill="#d4d4d8" xml:space="preserve" textLength="836.55" lengthAdjust="spacing"> mcps                                                                                              </text>
+<text x="20.00" y="71.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">mcps keeps all your MCP servers in one list and sets them up for every AI tool you use.             </text>
+<text x="20.00" y="109.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">This folder                                                                                         </text>
+<text x="20.00" y="128.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">~/my-api                                                                                            </text>
+<text x="20.00" y="147.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Which MCP servers should this project use?                                                          </text>
+<text x="20.00" y="166.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">↑/↓ move · space tick/untick · ←/→ none/all · enter confirm · ctrl+c cancel                         </text>
+<text x="20.00" y="185.00" fill="#67e8f9" xml:space="preserve" textLength="194.35" lengthAdjust="spacing">Servers for this folder</text>
+<text x="214.35" y="185.00" fill="#d4d4d8" xml:space="preserve" textLength="650.65" lengthAdjust="spacing">:                                                                            </text>
+<text x="36.90" y="204.00" fill="#d8b4fe" xml:space="preserve" textLength="8.45" lengthAdjust="spacing">❯</text>
+<text x="45.35" y="204.00" fill="#d4d4d8" xml:space="preserve" textLength="819.65" lengthAdjust="spacing"> notion   https://mcp.notion.com/mcp                                                             </text>
+<text x="36.90" y="223.00" fill="#d8b4fe" xml:space="preserve" textLength="8.45" lengthAdjust="spacing">❯</text>
+<text x="45.35" y="223.00" fill="#d4d4d8" xml:space="preserve" textLength="819.65" lengthAdjust="spacing"> slack    http://localhost:3010/mcp                                                              </text>
+<text x="20.00" y="261.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Done. 2 MCP server(s) set up for this folder: notion, slack                                         </text>
+<text x="20.00" y="280.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Set up for: Claude Code, Codex, Kiro                                                                </text>
+<text x="20.00" y="299.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Files created or updated:                                                                           </text>
+<text x="20.00" y="318.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">  ✓ .mcp.json                                                                                       </text>
+<text x="20.00" y="337.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">  ✓ .codex/config.toml                                                                              </text>
+<text x="20.00" y="356.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">  ✓ .kiro/settings/mcp.json                                                                         </text>
+<text x="20.00" y="375.00" fill="#d4d4d8" xml:space="preserve" textLength="845.00" lengthAdjust="spacing">Run mcps again any time to change which MCP servers this folder uses.                               </text>
+</svg>

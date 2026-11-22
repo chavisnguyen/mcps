@@ -117,7 +117,7 @@ func cmdPick(args []string) int {
 		}
 		if len(r.Servers) == 0 {
 			fmt.Printf("\nThere are no MCP servers in the mcps list yet, so there is nothing to set up.\n")
-			fmt.Printf("Add some by editing %s (examples are inside), or run mcps again.\n", registryPath())
+			fmt.Printf("Add some by editing %s (examples are inside), or run mcps again.\n", tilde(registryPath()))
 			return 0
 		}
 		fmt.Println()
@@ -125,7 +125,7 @@ func cmdPick(args []string) int {
 	} else {
 		fmt.Println("This folder")
 	}
-	fmt.Println(dir)
+	fmt.Println(tilde(dir))
 
 	var cur Project
 	if exists(pf) {
@@ -278,7 +278,7 @@ func summarize(dir string, r *Registry, chosen []string, res []result) {
 		}
 	}
 	if secret && changed {
-		fmt.Println("Note: these files can contain API keys. Add them to .gitignore if you don't want them committed.")
+		fmt.Println("Note: these files can contain API keys; add them to .gitignore if needed.")
 	}
 	fmt.Println("Run mcps again any time to change which MCP servers this folder uses.")
 }
