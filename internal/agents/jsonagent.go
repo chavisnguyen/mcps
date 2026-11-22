@@ -213,3 +213,6 @@ func specFromJSON(name string, raw json.RawMessage) *Spec {
 	}
 	return s
 }
+
+// SpecFromJSON parses one server entry from any agent's JSON shape.
+func SpecFromJSON(name string, raw json.RawMessage) *Spec { return specFromJSON(name, raw) }

@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -21,6 +24,7 @@ import (
 
 type seen struct {
 	agent string
+	where string // project folder; "" = the tool's global config
 	spec  *agents.Spec
 }
 
@@ -36,8 +40,28 @@ func (c *cand) agentIDs() string {
 	ids := make([]string, len(c.from))
 	for i, f := range c.from {
 		ids[i] = agentName(f.agent)
+		if f.where != "" {
+			ids[i] += " in " + tilde(f.where)
+		}
 	}
 	return strings.Join(ids, ", ")
+}
+
+// folderBound reports whether a project-level server points at files that
+// exist relative to its own folder (so it would break when used elsewhere).
+func (c *cand) folderBound() bool {
+	for _, f := range c.from {
+		if f.where == "" {
+			continue
+		}
+		for _, a := range append([]string{f.spec.Command}, f.spec.Args...) {
+			if a != "" && !filepath.IsAbs(a) && strings.ContainsAny(a, "/.") && !strings.HasPrefix(a, "-") &&
+				!strings.HasPrefix(a, "@") && exists(filepath.Join(f.where, a)) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func canon(s *agents.Spec) string {
@@ -49,9 +73,44 @@ func canon(s *agents.Spec) string {
 	return string(b)
 }
 
-// scanGlobal reads each agent's global file. Entries mcps itself generated
-// (tracked in state.json) are skipped.
-func scanGlobal(csv string) (map[string]*cand, []string, error) {
+// addFound records one server seen in one place, merging same-named entries.
+func addFound(found map[string]*cand, s *agents.Spec, agent, where string) {
+	c := found[s.Name]
+	if c == nil {
+		c = &cand{name: s.Name}
+		found[s.Name] = c
+	} else if canon(c.spec()) != canon(s) {
+		c.differs = append(c.differs, agent)
+	}
+	c.from = append(c.from, seen{agent, where, s})
+}
+
+// readInto reads one config file and records every server in it that mcps
+// did not generate itself (tracked in state.json).
+func readInto(found map[string]*cand, st *state, a agents.Agent, path, where string) string {
+	if !exists(path) {
+		return ""
+	}
+	specs, err := a.Read(readFile(path))
+	if err != nil {
+		return fmt.Sprintf("%s: could not read %s: %v", a.ID(), tilde(path), err)
+	}
+	managed := map[string]bool{}
+	for _, n := range st.Files[path] {
+		managed[n] = true
+	}
+	for _, s := range specs {
+		if !managed[s.Name] {
+			addFound(found, s, a.ID(), where)
+		}
+	}
+	return ""
+}
+
+// scanGlobal reads each agent's global file, plus (optionally) project-level
+// files: in every folder under each root in scan, and Claude Code's per-project
+// entries stored in ~/.claude.json.
+func scanGlobal(csv string, withGlobal bool, here string, scan []string) (map[string]*cand, []string, error) {
 	ags, _, err := pickAgents(csv)
 	if err != nil {
 		return nil, nil, err
@@ -60,34 +119,97 @@ func scanGlobal(csv string) (map[string]*cand, []string, error) {
 	found := map[string]*cand{}
 	var notes []string
 	for _, a := range ags {
-		path, ok := a.Path("global", "")
-		if !ok || !exists(path) {
-			continue
+		if !withGlobal {
+			break
 		}
-		specs, err := a.Read(readFile(path))
-		if err != nil {
-			notes = append(notes, fmt.Sprintf("%s: could not read %s: %v", a.ID(), path, err))
-			continue
-		}
-		managed := map[string]bool{}
-		for _, n := range st.Files[path] {
-			managed[n] = true
-		}
-		for _, s := range specs {
-			if managed[s.Name] {
-				continue
+		if path, ok := a.Path("global", ""); ok {
+			if n := readInto(found, st, a, path, ""); n != "" {
+				notes = append(notes, n)
 			}
-			c := found[s.Name]
-			if c == nil {
-				c = &cand{name: s.Name}
-				found[s.Name] = c
-			} else if canon(c.spec()) != canon(s) {
-				c.differs = append(c.differs, a.ID())
-			}
-			c.from = append(c.from, seen{a.ID(), s})
 		}
 	}
+	var dirs []string
+	if here != "" {
+		dirs = append(dirs, here)
+	}
+	for _, root := range scan {
+		dirs = append(dirs, walkProjects(root, ags)...)
+	}
+	for _, d := range dirs {
+		for _, a := range ags {
+			if path, ok := a.Path("local", d); ok {
+				if n := readInto(found, st, a, path, d); n != "" {
+					notes = append(notes, n)
+				}
+			}
+		}
+	}
+	claudeProjects(found, append([]string{here}, scan...))
 	return found, notes, nil
+}
+
+var skipDirs = map[string]bool{"node_modules": true, ".git": true, "vendor": true, "Library": true,
+	".Trash": true, "target": true, "dist": true, "build": true, ".venv": true, "venv": true}
+
+// walkProjects returns folders under root (max depth 5) that hold a
+// project-level MCP file of any given agent.
+func walkProjects(root string, ags []agents.Agent) []string {
+	var out []string
+	rootDepth := strings.Count(filepath.Clean(root), string(os.PathSeparator))
+	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		if p != root && (skipDirs[d.Name()] || strings.Count(p, string(os.PathSeparator))-rootDepth > 5) {
+			return filepath.SkipDir
+		}
+		if p != root && strings.HasPrefix(d.Name(), ".") {
+			return filepath.SkipDir // hidden folders are never projects themselves
+		}
+		for _, a := range ags {
+			if f, ok := a.Path("local", p); ok && exists(f) {
+				out = append(out, p)
+				break
+			}
+		}
+		return nil
+	})
+	return out
+}
+
+// claudeProjects reads Claude Code's "local scope" servers (kept per project
+// inside ~/.claude.json) for the scanned folders.
+func claudeProjects(found map[string]*cand, scan []string) {
+	var doc struct {
+		Projects map[string]struct {
+			MCP map[string]json.RawMessage `json:"mcpServers"`
+		} `json:"projects"`
+	}
+	if json.Unmarshal([]byte(readFile(filepath.Join(home(), ".claude.json"))), &doc) != nil {
+		return
+	}
+	for dir, pr := range doc.Projects {
+		in := false
+		for _, root := range scan {
+			if root == "" {
+				continue
+			}
+			if dir == root || strings.HasPrefix(dir, filepath.Clean(root)+string(os.PathSeparator)) {
+				in = true
+			}
+		}
+		if !in {
+			continue
+		}
+		for name, raw := range pr.MCP {
+			if s := agents.SpecFromJSON(name, raw); s != nil {
+				addFound(found, s, "claude", dir)
+			}
+		}
+	}
 }
 
 // ---------------------------------------------------------------- conversion
@@ -192,6 +314,11 @@ func summary(s *agents.Spec) string {
 
 // ------------------------------------------------------------------ command
 
+type multiFlag []string
+
+func (m *multiFlag) String() string     { return "" }
+func (m *multiFlag) Set(v string) error { *m = append(*m, v); return nil }
+
 func cmdImport(args []string) int { return runImport(args, false) }
 
 // runImport; guided=true when called from the step-by-step flow (it continues
@@ -200,9 +327,30 @@ func runImport(args []string, guided bool) int {
 	var c common
 	var yes bool
 	fs := newFlags("import", &c, nil, nil)
+	var scan multiFlag
 	fs.BoolVar(&yes, "yes", false, "")
+	fs.Var(&scan, "scan", "")
 	if err := fs.Parse(args); err != nil {
 		return 2
+	}
+	roots := []string{}
+	for _, r := range scan {
+		abs, err := filepath.Abs(strings.Replace(r, "~", home(), 1))
+		if err != nil {
+			return fail(err)
+		}
+		roots = append(roots, abs)
+	}
+	here, _ := filepath.Abs(c.dir)
+	withGlobal, withLocal := true, true
+	if c.global != c.local { // exactly one of --global / --local
+		withGlobal, withLocal = c.global, c.local
+	}
+	if c.global && !c.local && len(roots) > 0 {
+		return fail(errors.New("--scan reads project folders, so it cannot be combined with --global"))
+	}
+	if !withLocal {
+		here = ""
 	}
 	if _, _, err := scaffoldRegistry(); err != nil {
 		return fail(err)
@@ -211,7 +359,7 @@ func runImport(args []string, guided bool) int {
 	if err != nil {
 		return fail(err)
 	}
-	found, notes, err := scanGlobal(c.agents)
+	found, notes, err := scanGlobal(c.agents, withGlobal, here, roots)
 	if err != nil {
 		return fail(err)
 	}
@@ -250,6 +398,9 @@ func runImport(args []string, guided bool) int {
 		for i, n := range names {
 			cd := found[n]
 			l := fmt.Sprintf("%-*s  [%s]  %s", w, n, cd.agentIDs(), trunc(summary(cd.spec()), 60))
+			if cd.folderBound() {
+				l += "  (uses files from its own folder)"
+			}
 			if len(cd.differs) > 0 {
 				names := make([]string, len(cd.differs))
 				for k, id := range cd.differs {
@@ -291,6 +442,9 @@ func runImport(args []string, guided bool) int {
 	for _, n := range chosen {
 		d, sec, w := toDef(found[n].spec())
 		warns = append(warns, w...)
+		if found[n].folderBound() {
+			warns = append(warns, n+": uses relative file paths from its original folder; edit its cmd to absolute paths before using it elsewhere")
+		}
 		for k, v := range sec {
 			secrets[k] = v
 		}

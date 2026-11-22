@@ -38,7 +38,7 @@ More
   mcps global add|rm|list      edit your AI tools' global config directly
   mcps sync -g                 apply [global] use from the list to your AI tools' global config
 
-Flags: --dry-run  --agents claude,codex  --dir PATH  --local (global add/rm/list)  -e KEY[=VALUE]  -H "Name: value"
+Flags: --global / --local (import: only tools' global config / only this folder; default both)  --scan DIR (import: also read project folders under DIR)  --dry-run  --agents claude,codex  --dir PATH  --local (global add/rm/list)  -e KEY[=VALUE]  -H "Name: value"
 Env:   MCPS_HOME (default ~/.mcps), MCPS_REGISTRY (path to servers.toml)
 `
 
@@ -67,6 +67,7 @@ func newFlags(name string, c *common, env envFlag, url *string) *flag.FlagSet {
 	fs.Usage = func() { fmt.Fprint(os.Stderr, usage) }
 	fs.BoolVar(&c.local, "local", false, "")
 	fs.BoolVar(&c.global, "g", false, "")
+	fs.BoolVar(&c.global, "global", false, "")
 	fs.BoolVar(&c.dry, "dry-run", false, "")
 	fs.StringVar(&c.dir, "dir", ".", "")
 	fs.StringVar(&c.agents, "agents", "", "")

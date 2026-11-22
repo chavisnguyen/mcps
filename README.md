@@ -146,7 +146,9 @@ After you change a server in the list, it tells you which folders need `mcps syn
 | `mcps add NAME --url URL` / `mcps add NAME -- CMD ARGS` | add a server to the list |
 | `mcps remove NAME` | remove a server from the list |
 | `mcps list` | show the list |
-| `mcps import` | add servers your tools already have |
+| `mcps import` | add servers your tools already have (global, plus the current folder) |
+| `mcps import --global` / `--local` | only your tools' global settings / only this folder |
+| `mcps import --scan ~/Projects` | also find servers set up inside project folders |
 | `mcps doctor` | find out why a server is not showing up in a tool |
 | `mcps status` | check every folder you set up is still in sync with the list |
 | `mcps sync` | re-apply this folder's `.mcps.toml` after editing it by hand |

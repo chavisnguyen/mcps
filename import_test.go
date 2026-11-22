@@ -93,7 +93,7 @@ func TestDesktopMcpRemoteIsReadBackAsRemote(t *testing.T) {
 	os.MkdirAll(app, 0o755)
 	os.WriteFile(filepath.Join(h, ".claude.json"), []byte(`{"mcpServers":{"b":{"type":"http","url":"http://localhost:3025/mcp"}}}`), 0o644)
 	os.WriteFile(filepath.Join(app, "claude_desktop_config.json"), []byte(`{"mcpServers":{"b":{"command":"npx","args":["-y","mcp-remote","http://localhost:3025/mcp"]}}}`), 0o644)
-	found, _, err := scanGlobal("")
+	found, _, err := scanGlobal("", true, "", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,5 +148,41 @@ func TestAddAndRemoveRoundTrip(t *testing.T) {
 	}
 	if !strings.Contains(readFile(filepath.Join(proj, ".mcp.json")), "SUPERSECRET") {
 		t.Fatal("header value should be filled from secrets.env")
+	}
+}
+
+func TestImportScansProjectFolders(t *testing.T) {
+	h := t.TempDir()
+	t.Setenv("HOME", h)
+	t.Setenv("MCPS_HOME", filepath.Join(h, ".mcps"))
+	os.MkdirAll(filepath.Join(h, ".claude"), 0o755)
+	root := filepath.Join(h, "work")
+	sub := filepath.Join(root, "a", "b")
+	os.MkdirAll(sub, 0o755)
+	os.MkdirAll(filepath.Join(root, "node_modules", "x"), 0o755)
+	os.WriteFile(filepath.Join(sub, ".mcp.json"), []byte(`{"mcpServers":{"local-only":{"type":"http","url":"http://p"}}}`), 0o644)
+	os.WriteFile(filepath.Join(root, "node_modules", "x", ".mcp.json"), []byte(`{"mcpServers":{"ignored":{"url":"http://n"}}}`), 0o644)
+	os.WriteFile(filepath.Join(h, ".claude.json"), []byte(`{"projects":{"`+sub+`":{"mcpServers":{"from-claude-local":{"type":"http","url":"http://c"}}}}}`), 0o644)
+
+	found, _, err := scanGlobal("", true, "", []string{root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found["local-only"] == nil || found["from-claude-local"] == nil {
+		t.Fatalf("project servers not found: %v", found)
+	}
+	if found["ignored"] != nil {
+		t.Fatal("node_modules must be skipped")
+	}
+	if got := found["local-only"].from[0].where; got != sub {
+		t.Fatalf("where = %q", got)
+	}
+	// without --scan nothing outside the current folder is read
+	if f, _, _ := scanGlobal("", true, "", nil); f["local-only"] != nil {
+		t.Fatal("no scan, no project servers")
+	}
+	// the current folder itself is read by default
+	if f, _, _ := scanGlobal("", true, sub, nil); f["local-only"] == nil {
+		t.Fatal("current folder should be scanned")
 	}
 }
