@@ -11,16 +11,27 @@ import (
 	"github.com/chavisnguyen/mcps/internal/agents"
 )
 
-// folderServers reads every MCP server currently configured for dir: the
-// project-level file of each tool, plus Claude Code's per-project entries.
-func folderServers(dir, csv string) (map[string]*cand, []string, error) {
-	ags := agents.All()
+// useAgents picks the tools to rewrite for a folder: exactly the ones named
+// (flag or .mcps.toml), else every installed tool plus any tool that already has
+// a project file here, so old config is replaced rather than left behind.
+func useAgents(csv, dir string) ([]agents.Agent, error) {
 	if csv != "" {
-		var err error
-		if ags, _, err = pickAgents(csv); err != nil {
-			return nil, nil, err
+		ags, _, err := pickAgents(csv)
+		return ags, err
+	}
+	var out []agents.Agent
+	for _, a := range agents.All() {
+		p, ok := a.Path("local", dir)
+		if ok && (a.Installed() || exists(p)) {
+			out = append(out, a)
 		}
 	}
+	return out, nil
+}
+
+// folderServers reads every MCP server currently configured for dir: the
+// project-level file of each tool, plus Claude Code's per-project entries.
+func folderServers(dir string, ags []agents.Agent) (map[string]*cand, []string, error) {
 	found := map[string]*cand{}
 	var notes []string
 	empty := &state{Files: map[string][]string{}} // managed entries count too: they are what is on now
@@ -39,9 +50,10 @@ func folderServers(dir, csv string) (map[string]*cand, []string, error) {
 // what is in the hub, lets you choose, then rewrites the folder's MCP config.
 func cmdUse(args []string) int {
 	var c common
-	var noSync bool
+	var noSync, retools bool
 	fs := newFlags("use", &c, nil, nil)
 	fs.BoolVar(&noSync, "no-sync", false, "")
+	fs.BoolVar(&retools, "tools", false, "")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
@@ -84,7 +96,28 @@ func cmdUse(args []string) int {
 			return fail(fmt.Errorf("%s: %w", pf, err))
 		}
 	}
-	here, notes, err := folderServers(dir, c.agents)
+	csv := c.agents
+	if csv == "" && (len(cur.Agents) == 0 || retools) {
+		ids, err := chooseTools(dir, cur.Agents)
+		if err != nil {
+			return fail(err)
+		}
+		cur.Agents = ids
+		fmt.Println()
+	}
+	if csv == "" {
+		csv = strings.Join(cur.Agents, ",")
+		names := make([]string, len(cur.Agents))
+		for i, id := range cur.Agents {
+			names[i] = agentName(id)
+		}
+		fmt.Println(dim("Tools: " + strings.Join(names, ", ") + "   (change: mcps use --tools)"))
+	}
+	ags, err := useAgents(csv, dir)
+	if err != nil {
+		return fail(err)
+	}
+	here, notes, err := folderServers(dir, ags)
 	if err != nil {
 		return fail(err)
 	}
@@ -124,7 +157,7 @@ func cmdUse(args []string) int {
 		only = append(only, pickItem{ID: "only:" + n, Name: n, Note: trunc(summary(here[n].spec()), 60), On: true})
 	}
 
-	fmt.Println(bold("This folder") + "  " + dim(tilde(dir)))
+	fmt.Println(bold("Step 2 · MCP servers") + "  " + dim(tilde(dir)))
 	secs := []pickSection{{Title: fmt.Sprintf("In your hub (%d)", len(hub)), Items: hub}}
 	if len(only) > 0 {
 		secs = append(secs, pickSection{
@@ -193,14 +226,6 @@ func cmdUse(args []string) int {
 	if err != nil {
 		return fail(err)
 	}
-	csv := c.agents
-	if csv == "" && len(cur.Agents) > 0 {
-		csv = strings.Join(cur.Agents, ",")
-	}
-	ags, _, err := pickAgents(csv)
-	if err != nil {
-		return fail(err)
-	}
 	var results []result
 	t := target{scope: "local", project: dir, agents: ags, quiet: true, res: &results, replace: true}
 	failures := apply(t, specs, nil, true)
@@ -219,3 +244,48 @@ func cmdUse(args []string) int {
 
 // testPick lets tests run cmdUse without a terminal.
 var testPick bool
+
+// chooseTools is step 1: which AI tools get config files in this folder.
+func chooseTools(dir string, current []string) ([]string, error) {
+	want := map[string]bool{}
+	for _, id := range current {
+		want[id] = true
+	}
+	var items []pickItem
+	for _, a := range agents.All() {
+		p, ok := a.Path("local", dir)
+		if !ok {
+			continue // e.g. Claude Desktop: no per-folder config
+		}
+		note, has := "not installed", exists(p)
+		switch {
+		case a.Installed() && has:
+			note = "installed · has a file in this folder"
+		case a.Installed():
+			note = "installed"
+		case has:
+			note = "not installed · has a file in this folder"
+		}
+		on := a.Installed() || has
+		if len(current) > 0 {
+			on = want[a.ID()]
+		}
+		items = append(items, pickItem{ID: a.ID(), Name: agentName(a.ID()), Note: note, On: on})
+	}
+	fmt.Println(bold("Step 1 · Tools for this folder") + "  " + dim(tilde(dir)))
+	res, err := pickFn([]pickSection{{Title: "Which AI tools should get MCP config here?", Items: items}},
+		"↑↓ move · space tick · enter next · q cancel")
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, it := range items {
+		if res[it.ID] {
+			ids = append(ids, it.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, errors.New("pick at least one tool")
+	}
+	return ids, nil
+}

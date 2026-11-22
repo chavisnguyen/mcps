@@ -64,3 +64,50 @@ func TestUseReplacesFolderAndPromotes(t *testing.T) {
 		t.Fatalf(".mcps.toml wrong:\n%s", p)
 	}
 }
+
+// A tool that is not installed but already has a project file must be rewritten too,
+// otherwise its old servers survive "mcps use".
+func TestUseCleansFilesOfUninstalledTools(t *testing.T) {
+	h := t.TempDir()
+	t.Setenv("HOME", h)
+	t.Setenv("MCPS_HOME", filepath.Join(h, ".mcps"))
+	os.MkdirAll(filepath.Join(h, ".claude"), 0o755) // only Claude is installed
+	reg := filepath.Join(h, "s.toml")
+	os.WriteFile(reg, []byte("[servers.a]\nurl = \"http://a\"\n"), 0o644)
+	t.Setenv("MCPS_REGISTRY", reg)
+	proj := filepath.Join(h, "p")
+	os.MkdirAll(filepath.Join(proj, ".cursor"), 0o755)
+	cur := filepath.Join(proj, ".cursor/mcp.json")
+	os.WriteFile(cur, []byte(`{"mcpServers":{"xcode":{"command":"xcrun","args":["mcpbridge"]}}}`), 0o644)
+
+	testPick = true
+	defer func() { testPick = false }()
+	var toolNotes map[string]string
+	pickFn = func(secs []pickSection, _ string) (map[string]bool, error) {
+		res := map[string]bool{}
+		if strings.HasPrefix(secs[0].Title, "Which AI tools") { // step 1: accept the defaults
+			toolNotes = map[string]string{}
+			for _, it := range secs[0].Items {
+				res[it.ID] = it.On
+				toolNotes[it.ID] = it.Note
+			}
+			return res, nil
+		}
+		for _, s := range secs {
+			for _, it := range s.Items {
+				res[it.ID] = it.ID == "a" // untick everything except a
+			}
+		}
+		return res, nil
+	}
+	defer func() { pickFn = runPicker }()
+	if run([]string{"use", "--dir", proj}) != 0 {
+		t.Fatal("use failed")
+	}
+	if !strings.Contains(toolNotes["cursor"], "has a file") || !strings.Contains(readFile(filepath.Join(proj, ".mcps.toml")), "cursor") {
+		t.Fatalf("step 1 should pre-tick cursor and save it: %v", toolNotes)
+	}
+	if got := readFile(cur); strings.Contains(got, "xcode") || !strings.Contains(got, `"a"`) {
+		t.Fatalf("old cursor entry survived:\n%s", got)
+	}
+}
