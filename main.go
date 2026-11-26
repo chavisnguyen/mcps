@@ -13,7 +13,7 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-var version = "dev"
+var version = "0.5.3"
 
 const usage = `mcps - set up MCP servers for all your AI tools, from one list.
 
